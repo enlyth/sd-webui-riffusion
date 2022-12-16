@@ -46,7 +46,7 @@ class RiffusionScript(scripts.Script):
             )
             mp3_bytes = self.mp3_bytes_from_wav_bytes(wav_bytes)
             namegen = FilenameGenerator(p, p.seed, p.prompt, proc.images[i])
-            name = namegen.apply("[job_timestamp]-[seed]-[prompt_spaces]")
+            name = namegen.apply(f"{i}-[job_timestamp]-[seed]-[prompt_spaces]")
 
             filename = os.path.join(output_path, f"{name}.mp3")
 
