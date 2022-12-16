@@ -14,7 +14,6 @@ import gradio as gr
 from modules import scripts
 from modules.images import FilenameGenerator
 from modules.processing import process_images, Processed
-import datetime
 
 
 base_dir = scripts.basedir()
