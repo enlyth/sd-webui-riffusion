@@ -1,8 +1,8 @@
 # Riffusion extension for AUTOMATIC1111 Web UI
 
 ## Installation
-
-Clone this repo inside your `/extensions` folder
+- Make sure `ffmpeg` is installed and the directory with the binaries is in your PATH
+- Clone this repo inside your `/extensions` folder
 
 ## Usage
 
