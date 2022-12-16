@@ -22,7 +22,7 @@ base_dir = scripts.basedir()
 
 class RiffusionScript(scripts.Script):
     def title(self):
-        return "Riffusion mp3 generator"
+        return "Riffusion MP3 Generator"
 
     def ui(self, is_img2img):
         path = os.path.join(base_dir, "outputs")
