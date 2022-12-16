@@ -78,8 +78,8 @@ class RiffusionScript(scripts.Script):
         sample_rate = 44100  # [Hz]
         clip_duration_ms = 5000  # [ms]
 
-        bins_per_image = 512
-        n_mels = 512
+        bins_per_image = image.height
+        n_mels = image.height
 
         # FFT parameters
         window_duration_ms = 100  # [ms]
