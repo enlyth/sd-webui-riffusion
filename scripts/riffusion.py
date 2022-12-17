@@ -14,12 +14,16 @@ import gradio as gr
 from modules import scripts
 from modules.images import FilenameGenerator
 from modules.processing import process_images, Processed
-
+import modules.shared as shared
 
 base_dir = scripts.basedir()
 
+MAX_BATCH_SIZE = 8
+
 
 class RiffusionScript(scripts.Script):
+    last_generated_files = []
+
     def title(self):
         return "Riffusion MP3 Generator"
 
@@ -29,9 +33,56 @@ class RiffusionScript(scripts.Script):
 
         riffusion_enabled = gr.Checkbox(label="Riffusion enabled", value=True)
         output_path = gr.Textbox(label="Output path", value=path)
-        return [riffusion_enabled, output_path]
 
-    def run(self, p, riffusion_enabled, output_path):
+        def update_audio_players():
+            count = len(self.last_generated_files)
+            updates = [
+                gr.Audio.update(value=self.last_generated_files[i], visible=True)
+                for i in range(count)
+            ]
+            # pad with empty updates
+            for _ in range(count, MAX_BATCH_SIZE):
+                updates.append(gr.Audio.update(value=None, visible=False))
+            return updates
+
+        # create MAX_BATCH_SIZE audio players, and hide the unnecessary ones
+        audio_players = []
+        for i in range(MAX_BATCH_SIZE):
+            audio_players.append(
+                gr.Audio(
+                    label=f"Audio Player {i}",
+                    visible=False,
+                    value=None,
+                    interactive=False,
+                )
+            )
+
+        show_audio_button = gr.Button(
+            "Show Inline Audio (Last Batch)",
+            label="Show Inline Audio (Last Batch)",
+            variant="primary",
+        )
+        show_audio_button.click(
+            fn=lambda: update_audio_players(),
+            inputs=[],
+            outputs=audio_players,
+        )
+        hide_audio_button = gr.Button("Hide Inline Audio", label="Hide Inline Audio")
+        hide_audio_button.click(
+            fn=lambda: [
+                gr.Audio.update(value=None, visible=False)
+                for _ in range(MAX_BATCH_SIZE)
+            ],
+            inputs=[],
+            outputs=audio_players,
+        )
+
+        return [riffusion_enabled, output_path, show_audio_button, *audio_players]
+
+    def play_input_as_sound(self):
+        pass
+
+    def run(self, p, riffusion_enabled, output_path, btn, *audio_players):
         if riffusion_enabled is False:
             return process_images(p)
         else:
@@ -39,7 +90,14 @@ class RiffusionScript(scripts.Script):
 
         proc = process_images(p)
 
+        self.last_generated_files = []
+
         # save mp3 of each image
+        try:
+            # try to create output path dir if doesnt exist
+            os.makedirs(output_path)
+        except FileExistsError:
+            pass
         for i in range(len(proc.images)):
             wav_bytes, duration_s = self.wav_bytes_from_spectrogram_image(
                 proc.images[i]
@@ -50,14 +108,10 @@ class RiffusionScript(scripts.Script):
 
             filename = os.path.join(output_path, f"{name}.mp3")
 
-            # try to create output path dir if doesnt exist
-            try:
-                os.makedirs(output_path)
-            except FileExistsError:
-                pass
-
             with open(filename, "wb") as f:
                 f.write(mp3_bytes.getbuffer())
+
+            self.last_generated_files.append(filename)
 
         return proc
 
