@@ -23,6 +23,7 @@ MAX_BATCH_SIZE = 8
 
 class RiffusionScript(scripts.Script):
     last_generated_files = []
+    last_generated_labels = []
 
     def title(self):
         return "Riffusion MP3 Generator"
@@ -37,7 +38,11 @@ class RiffusionScript(scripts.Script):
         def update_audio_players():
             count = len(self.last_generated_files)
             updates = [
-                gr.Audio.update(value=self.last_generated_files[i], visible=True)
+                gr.Audio.update(
+                    value=self.last_generated_files[i],
+                    visible=True,
+                    label=self.last_generated_labels[i],
+                )
                 for i in range(count)
             ]
             # pad with empty updates
@@ -91,6 +96,7 @@ class RiffusionScript(scripts.Script):
         proc = process_images(p)
 
         self.last_generated_files = []
+        self.last_generated_labels = []
 
         # save mp3 of each image
         try:
@@ -112,6 +118,9 @@ class RiffusionScript(scripts.Script):
                 f.write(mp3_bytes.getbuffer())
 
             self.last_generated_files.append(filename)
+            self.last_generated_labels.append(
+                namegen.apply(f"[seed]-[prompt_spaces]-{i}")
+            )
 
         return proc
 
