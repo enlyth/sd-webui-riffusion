@@ -8,7 +8,7 @@
 
 ## Usage
 
-Select the `Riffusion MP3 Generator` script before generating, and use the riffusion model.
+Select the `Riffusion Audio Generator` script before generating, and use the riffusion model.
 
 ## TODO
 
