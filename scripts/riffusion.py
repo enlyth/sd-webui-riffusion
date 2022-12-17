@@ -6,15 +6,15 @@ import typing as T
 import os
 import numpy as np
 from PIL import Image
-import pydub
 from scipy.io import wavfile
 import torch
 import torchaudio
 import gradio as gr
 from modules import scripts
 from modules.images import FilenameGenerator
-from modules.processing import process_images, Processed
+from modules.processing import process_images
 import modules.shared as shared
+from pedalboard.io import AudioFile
 
 base_dir = scripts.basedir()
 
@@ -26,13 +26,30 @@ class RiffusionScript(scripts.Script):
     last_generated_labels = []
 
     def title(self):
-        return "Riffusion MP3 Generator"
+        return "Riffusion Audio Generator"
+
+    def process_wav(self, wav_file, preserve_wav=False):
+        with AudioFile(wav_file) as f:
+            audio = f.read(f.frames)
+            samplerate = f.samplerate
+
+        filename = wav_file.replace(".wav", ".mp3")
+        self.last_generated_files.append(filename)
+
+        with AudioFile(filename, "w", samplerate, audio.shape[0]) as f:
+            f.write(audio)
+
+        if not preserve_wav:
+            os.remove(wav_file)
 
     def ui(self, is_img2img):
         path = os.path.join(base_dir, "outputs")
         print("Path to save mp3 files: ", path)
 
-        riffusion_enabled = gr.Checkbox(label="Riffusion enabled", value=True)
+        with gr.Row():
+            riffusion_enabled = gr.Checkbox(label="Riffusion enabled", value=True)
+            save_wav = gr.Checkbox(label="Preserve Original WAV", value=False)
+
         output_path = gr.Textbox(label="Output path", value=path)
 
         def update_audio_players():
@@ -63,8 +80,8 @@ class RiffusionScript(scripts.Script):
             )
 
         show_audio_button = gr.Button(
-            "Show Inline Audio (Last Batch)",
-            label="Show Inline Audio (Last Batch)",
+            "Refresh Inline Audio (Last Batch)",
+            label="Refresh Inline Audio (Last Batch)",
             variant="primary",
         )
         show_audio_button.click(
@@ -82,12 +99,18 @@ class RiffusionScript(scripts.Script):
             outputs=audio_players,
         )
 
-        return [riffusion_enabled, output_path, show_audio_button, *audio_players]
+        return [
+            riffusion_enabled,
+            save_wav,
+            output_path,
+            show_audio_button,
+            *audio_players,
+        ]
 
     def play_input_as_sound(self):
         pass
 
-    def run(self, p, riffusion_enabled, output_path, btn, *audio_players):
+    def run(self, p, riffusion_enabled, save_wav, output_path, btn, *audio_players):
         if riffusion_enabled is False:
             return process_images(p)
         else:
@@ -95,29 +118,27 @@ class RiffusionScript(scripts.Script):
 
         proc = process_images(p)
 
-        self.last_generated_files = []
         self.last_generated_labels = []
-
-        # save mp3 of each image
+        self.last_generated_files = []
         try:
             # try to create output path dir if doesnt exist
             os.makedirs(output_path)
         except FileExistsError:
             pass
+
         for i in range(len(proc.images)):
             wav_bytes, duration_s = self.wav_bytes_from_spectrogram_image(
                 proc.images[i]
             )
-            mp3_bytes = self.mp3_bytes_from_wav_bytes(wav_bytes)
             namegen = FilenameGenerator(p, p.seed, p.prompt, proc.images[i])
             name = namegen.apply(f"[job_timestamp]-[seed]-[prompt_spaces]-{i}")
 
-            filename = os.path.join(output_path, f"{name}.mp3")
+            filename = os.path.join(output_path, f"{name}.wav")
 
             with open(filename, "wb") as f:
-                f.write(mp3_bytes.getbuffer())
+                f.write(wav_bytes.getbuffer())
 
-            self.last_generated_files.append(filename)
+            self.process_wav(filename, preserve_wav=save_wav)
             self.last_generated_labels.append(
                 namegen.apply(f"[seed]-[prompt_spaces]-{i}")
             )
@@ -291,10 +312,3 @@ class RiffusionScript(scripts.Script):
         waveform = griffin_lim(Sxx_torch).cpu().numpy()
 
         return waveform
-
-    def mp3_bytes_from_wav_bytes(self, wav_bytes: io.BytesIO) -> io.BytesIO:
-        mp3_bytes = io.BytesIO()
-        sound = pydub.AudioSegment.from_wav(wav_bytes)
-        sound.export(mp3_bytes, format="mp3")
-        mp3_bytes.seek(0)
-        return mp3_bytes
