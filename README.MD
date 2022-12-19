@@ -5,8 +5,8 @@
 ![Screenshot](/static/screenshot-1.png)
 
 ## Installation
-
-- Clone this repo inside your `/extensions` folder
+- Make sure `ffmpeg` is installed and the folder with the binaries is in your `PATH`
+- Clone this repo inside your `/extensions` folder, or use the Install from URL functionality in the UI
 
 ## Usage
 
