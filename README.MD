@@ -12,6 +12,8 @@
 
 Select the `Riffusion Audio Generator` script before generating, and use the riffusion model.
 
+You can also convert a whole folder of images to audio in the `Riffusion` tab.
+
 ## Prompt Travelling
 
 If you want to prompt travel in the latent space as described by the authors, install this extension:
