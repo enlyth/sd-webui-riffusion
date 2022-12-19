@@ -2,6 +2,8 @@
 
 ![Screenshot](/static/screenshot-0.png)
 
+![Screenshot](/static/screenshot-1.png)
+
 ## Installation
 
 - Clone this repo inside your `/extensions` folder
@@ -10,9 +12,16 @@
 
 Select the `Riffusion Audio Generator` script before generating, and use the riffusion model.
 
-## TODO
+## Prompt Travelling
 
-- Currently does not do the fancy img2img latent space interpolation described by the authors, just generates .mp3 files each time you generate an image
+If you want to prompt travel in the latent space as described by the authors, install this extension:
+
+https://github.com/Kahsolt/stable-diffusion-webui-prompt-travel
+
+It will output the results of runs in the `<SD>/outputs/(txt|img)2img-images/prompt_travel/` directory, and you can use the convert folder to audio functionality in the `Riffusion` tab to generate a single stitched-together audio file alongside the individual ones.
+
+Here is a sample made by travelling in img2img mode from `jamaican rap` to `deep house, techno` with denoise `0.5` for `14` steps, and using the `og_beat.png` provided by the original authors as a base image:
+[Audio Sample (Jamaican Rap to Deep House, Techno)](/static/sample-0.mp3)
 
 ## Acknowledgements
 

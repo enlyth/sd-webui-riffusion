@@ -10,11 +10,15 @@ from scipy.io import wavfile
 import torch
 import torchaudio
 import gradio as gr
-from modules import scripts
+from modules import scripts, script_callbacks
 from modules.images import FilenameGenerator
 from modules.processing import process_images
+import os
 import modules.shared as shared
 from pedalboard.io import AudioFile
+import glob
+from datetime import datetime
+import wave
 
 base_dir = scripts.basedir()
 
@@ -34,7 +38,7 @@ class RiffusionScript(scripts.Script):
             samplerate = f.samplerate
 
         filename = wav_file.replace(".wav", ".mp3")
-        self.last_generated_files.append(filename)
+        RiffusionScript.last_generated_files.append(filename)
 
         with AudioFile(filename, "w", samplerate, audio.shape[0]) as f:
             f.write(audio)
@@ -44,7 +48,6 @@ class RiffusionScript(scripts.Script):
 
     def ui(self, is_img2img):
         path = os.path.join(base_dir, "outputs")
-        print("Path to save mp3 files: ", path)
 
         with gr.Row():
             riffusion_enabled = gr.Checkbox(label="Riffusion enabled", value=True)
@@ -53,12 +56,12 @@ class RiffusionScript(scripts.Script):
         output_path = gr.Textbox(label="Output path", value=path)
 
         def update_audio_players():
-            count = len(self.last_generated_files)
+            count = len(RiffusionScript.last_generated_files)
             updates = [
                 gr.Audio.update(
-                    value=self.last_generated_files[i],
+                    value=RiffusionScript.last_generated_files[i],
                     visible=True,
-                    label=self.last_generated_labels[i],
+                    label=RiffusionScript.last_generated_labels[i],
                 )
                 for i in range(count)
             ]
@@ -118,8 +121,8 @@ class RiffusionScript(scripts.Script):
 
         proc = process_images(p)
 
-        self.last_generated_labels = []
-        self.last_generated_files = []
+        RiffusionScript.last_generated_labels = []
+        RiffusionScript.last_generated_files = []
         try:
             # try to create output path dir if doesnt exist
             os.makedirs(output_path)
@@ -139,7 +142,7 @@ class RiffusionScript(scripts.Script):
                 f.write(wav_bytes.getbuffer())
 
             self.process_wav(filename, preserve_wav=save_wav)
-            self.last_generated_labels.append(
+            RiffusionScript.last_generated_labels.append(
                 namegen.apply(f"[seed]-[prompt_spaces]-{i}")
             )
 
@@ -312,3 +315,92 @@ class RiffusionScript(scripts.Script):
         waveform = griffin_lim(Sxx_torch).cpu().numpy()
 
         return waveform
+
+
+def convert_audio_file(image, output_dir):
+    image_file = Image.open(image)
+    new_filename = os.path.splitext(os.path.basename(image))[0] + ".wav"
+    filename = os.path.join(output_dir, new_filename)
+    riffusion = RiffusionScript()
+    wav_bytes, duration_s = riffusion.wav_bytes_from_spectrogram_image(image_file)
+
+    with open(filename, "wb") as f:
+        f.write(wav_bytes.getbuffer())
+    return filename
+
+
+def convert_audio(image_dir: str, file_regex: str, join_images: bool) -> None:
+
+    images = []
+
+    globs = map(lambda x: x.strip(), file_regex.split(","))
+
+    for g in globs:
+        images.extend(glob.glob(os.path.join(image_dir, g)))
+
+    print(f"Found {len(images)} images in {image_dir}, pattern {file_regex}")
+    output_files = []
+    for image in images:
+        output_files.append(convert_audio_file(image, image_dir))
+
+    if join_images and len(output_files) > 1:
+        data = []
+        outfile = os.path.join(
+            image_dir,
+            f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_joined.wav",
+        )
+        for wav in output_files:
+            w = wave.open(wav, "rb")
+            data.append([w.getparams(), w.readframes(w.getnframes())])
+            w.close()
+        output = wave.open(outfile, "wb")
+        output.setparams(data[0][0])
+        for i in range(len(data)):
+            output.writeframes(data[i][1])
+        output.close()
+
+    print(f"Converted {len(images)} images to audio")
+
+
+def on_ui_tabs():
+    with gr.Blocks() as riffusion_ui:
+        with gr.Row():
+            with gr.Column(variant="panel"):
+                with gr.Row():
+                    image_directory = gr.Textbox(
+                        label="Image Directory",
+                        placeholder="Directory containing your image files",
+                        value="",
+                        interactive=True,
+                    )
+                with gr.Row():
+                    join_images = gr.Checkbox(
+                        label="Also output single joined audio file (will be named <date>_joined.wav)",
+                        value=True,
+                        interactive=True,
+                    )
+                with gr.Row():
+                    file_regex = gr.Textbox(
+                        label="GLOB patterns (comma separated)",
+                        value="*.jpg, *.png",
+                        interactive=True,
+                    )
+            with gr.Column(variant="panel"):
+                with gr.Row():
+                    convert_folder_btn = gr.Button(
+                        "Convert Folder", label="Convert Folder", variant="primary"
+                    )
+                    convert_folder_btn.click(
+                        convert_audio,
+                        inputs=[
+                            image_directory,
+                            file_regex,
+                            join_images,
+                        ],
+                        outputs=[],
+                    )
+                gr.HTML(value="<p>Converts all images in a folder to audio</p>")
+    return ((riffusion_ui, "Riffusion", "riffusion_ui"),)
+
+
+script_callbacks.on_ui_tabs(on_ui_tabs)
