@@ -21,7 +21,8 @@ https://github.com/Kahsolt/stable-diffusion-webui-prompt-travel
 It will output the results of runs in the `<SD>/outputs/(txt|img)2img-images/prompt_travel/` directory, and you can use the convert folder to audio functionality in the `Riffusion` tab to generate a single stitched-together audio file alongside the individual ones.
 
 Here is a sample made by travelling in img2img mode from `jamaican rap` to `deep house, techno` with denoise `0.5` for `14` steps, and using the `og_beat.png` provided by the original authors as a base image:
-[Audio Sample (Jamaican Rap to Deep House, Techno)](/static/sample-0.mp3)
+
+[Audio Sample (Jamaican Rap to Deep House, Techno)](https://soundcloud.com/enlyth/sd-riffusion-prompt-travel-sample-0)
 
 ## Acknowledgements
 
