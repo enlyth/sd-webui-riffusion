@@ -19,6 +19,7 @@ from pedalboard.io import AudioFile
 import glob
 from datetime import datetime
 import wave
+import platform
 
 base_dir = scripts.basedir()
 
@@ -279,7 +280,7 @@ class RiffusionScript(scripts.Script):
         n_mels: int = 512,
         max_mel_iters: int = 200,
         num_griffin_lim_iters: int = 32,
-        device: str = "cuda:0",
+        device: str = platform.system() == "Darwin" and "cpu" or "cuda:0",
     ) -> np.ndarray:
         """
         Reconstruct a waveform from a spectrogram.
