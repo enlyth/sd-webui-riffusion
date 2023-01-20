@@ -1,6 +1,7 @@
 import os
 import sys
 import platform
+import torch
 from launch import run
 
 req_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), "requirements.txt")
@@ -18,11 +19,18 @@ if not riffusion_skip_install:
             f"[{name}] Couldn't install torchaudio.",
         )
     else:
-        run(
-            f'"{sys.executable}" -m pip install torchaudio==0.12.1+cu113 --extra-index-url https://download.pytorch.org/whl/cu113',
-            f"[{name}] Installing torchaudio...",
-            f"[{name}] Couldn't install torchaudio.",
-        )
+        if torch.version.hip:
+            run(
+                f'"{sys.executable}" -m pip install torchaudio --extra-index-url https://download.pytorch.org/whl/rocm5.2',
+                f"[{name}] Installing torchaudio...",
+                f"[{name}] Couldn't install torchaudio.",
+            )
+        else:
+            run(
+                f'"{sys.executable}" -m pip install torchaudio==0.12.1+cu113 --extra-index-url https://download.pytorch.org/whl/cu113',
+                f"[{name}] Installing torchaudio...",
+                f"[{name}] Couldn't install torchaudio.",
+            )
 
     run(
         f'"{sys.executable}" -m pip install -r "{req_file}"',
