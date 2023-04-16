@@ -9,17 +9,17 @@ req_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), "requiremen
 print("Initializing Riffusion")
 riffusion_skip_install = os.environ.get("RIFFUSION_SKIP_INSTALL", False)
 
-if not riffusion_skip_install and not launch.is_installed("torchaudio"):
+if not riffusion_skip_install:
     name = "Riffusion"
-    if platform.system() == "Darwin":
-        # MacOS
-        launch.run(
-            f'"{sys.executable}" -m pip install torchaudio==0.13.1',
-            f"[{name}] Installing torchaudio...",
-            f"[{name}] Couldn't install torchaudio.",
-        )
-    else:
-        if torch.version.hip:
+    if not launch.is_installed("torchaudio"):
+        if platform.system() == "Darwin":
+            # MacOS
+            launch.run(
+                f'"{sys.executable}" -m pip install torchaudio==0.13.1',
+                f"[{name}] Installing torchaudio...",
+                f"[{name}] Couldn't install torchaudio.",
+            )
+        elif torch.version.hip:
             launch.run(
                 f'"{sys.executable}" -m pip install torchaudio==0.13.1+rocm5.2 --extra-index-url https://download.pytorch.org/whl/rocm5.2',
                 f"[{name}] Installing torchaudio...",
