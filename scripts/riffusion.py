@@ -345,6 +345,7 @@ def convert_audio(image_dir: str, file_regex: str, join_images: bool) -> None:
         output_files.append(convert_audio_file(image, image_dir))
 
     if join_images and len(output_files) > 1:
+        output_files.sort()
         data = []
         outfile = os.path.join(
             image_dir,
