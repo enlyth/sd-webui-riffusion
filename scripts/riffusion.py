@@ -318,8 +318,11 @@ class RiffusionScript(scripts.Script):
         return waveform
 
 
-def convert_audio_file(image, output_dir):
+def convert_audio_file(image, output_dir, crop_width = None):
     image_file = Image.open(image)
+    if crop_width is not None and crop_width < image_file.width:
+        image_file = image_file.crop((0,0,crop_width,image_file.height))
+    
     new_filename = os.path.splitext(os.path.basename(image))[0] + ".wav"
     filename = os.path.join(output_dir, new_filename)
     riffusion = RiffusionScript()
@@ -329,8 +332,7 @@ def convert_audio_file(image, output_dir):
         f.write(wav_bytes.getbuffer())
     return filename
 
-
-def convert_audio(image_dir: str, file_regex: str, join_images: bool) -> None:
+def convert_audio(image_dir: str, file_regex: str, join_images: bool, crop_method: str, crop_width: int) -> None:
 
     images = []
 
@@ -342,7 +344,11 @@ def convert_audio(image_dir: str, file_regex: str, join_images: bool) -> None:
     print(f"Found {len(images)} images in {image_dir}, pattern {file_regex}")
     output_files = []
     for image in images:
-        output_files.append(convert_audio_file(image, image_dir))
+        width = None
+        if crop_method == "Fixed":
+            width = crop_width
+        
+        output_files.append(convert_audio_file(image, image_dir, width))
 
     if join_images and len(output_files) > 1:
         output_files.sort()
@@ -387,6 +393,23 @@ def on_ui_tabs():
                         value="*.jpg, *.png",
                         interactive=True,
                     )
+                with gr.Blocks():
+                    crop_method = gr.Dropdown(
+                        label="Crop method",
+                        choices=["None", "Fixed"],
+                        value="None",
+                        interactive=True,
+                        allow_custom_value=False
+                    )
+                    crop_width = gr.Number(
+                        label="Fixed width",
+                        value=512,
+                        precision=0,
+                        interactive=True,
+                        visible=False
+                    )
+                
+                crop_method.change(on_crop_method_change, crop_method, crop_width)
             with gr.Column(variant="panel"):
                 with gr.Row():
                     convert_folder_btn = gr.Button(
@@ -398,11 +421,16 @@ def on_ui_tabs():
                             image_directory,
                             file_regex,
                             join_images,
+                            crop_method,
+                            crop_width
                         ],
                         outputs=[],
                     )
                 gr.HTML(value="<p>Converts all images in a folder to audio</p>")
     return ((riffusion_ui, "Riffusion", "riffusion_ui"),)
 
+def on_crop_method_change(crop_method):
+    visible = True if crop_method == "Fixed" else False
+    return gr.update(visible=visible)
 
 script_callbacks.on_ui_tabs(on_ui_tabs)
