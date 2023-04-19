@@ -20,6 +20,7 @@ import glob
 from datetime import datetime
 import wave
 import platform
+from statistics import mean
 
 base_dir = scripts.basedir()
 
@@ -320,6 +321,9 @@ class RiffusionScript(scripts.Script):
 
 def convert_audio_file(image, output_dir, crop_width = None):
     image_file = Image.open(image)
+    return convert_audio_image(image, image_file_, output_dir_, crop_width)
+
+def convert_audio_image(image, image_file, output_dir, crop_width = None):
     if crop_width is not None and crop_width < image_file.width:
         image_file = image_file.crop((0,0,crop_width,image_file.height))
     
@@ -332,7 +336,17 @@ def convert_audio_file(image, output_dir, crop_width = None):
         f.write(wav_bytes.getbuffer())
     return filename
 
-def convert_audio(image_dir: str, file_regex: str, join_images: bool, crop_method: str, crop_width: int) -> None:
+def convert_audio(
+    image_dir: str,
+    file_regex: str,
+    join_images: bool,
+    crop_method: str,
+    crop_width: int,
+    rythm:int,
+    band_start: float,
+    band_end: float,
+    threshold_offset: float,
+    ignore_range: float) -> None:
 
     images = []
 
@@ -343,12 +357,16 @@ def convert_audio(image_dir: str, file_regex: str, join_images: bool, crop_metho
 
     print(f"Found {len(images)} images in {image_dir}, pattern {file_regex}")
     output_files = []
-    for image in images:
-        width = None
+    width = None
+    for i, image in enumerate(images):
+        image_file = Image.open(image)
         if crop_method == "Fixed":
             width = crop_width
+        elif crop_method.startswith("Beat Finder") and (not crop_method.endswith("(Once)") or i == 0):
+            width = find_cutoff(image_file, rythm, band_start, band_end, threshold_offset, ignore_range)
+            print("Cutoff found at:", width)
         
-        output_files.append(convert_audio_file(image, image_dir, width))
+        output_files.append(convert_audio_image(image, image_file, image_dir, width))
 
     if join_images and len(output_files) > 1:
         output_files.sort()
@@ -369,6 +387,40 @@ def convert_audio(image_dir: str, file_regex: str, join_images: bool, crop_metho
 
     print(f"Converted {len(images)} images to audio")
 
+def find_cutoff(image, rythm = 4, band_start = 0.25, band_end = 0.75, threshold_offset = 0.75, ignore_range = 0.05):
+    
+    ignore_distance = image.width * ignore_range
+    register_start = image.height * band_start
+    register_lenght = image.height * band_end
+    
+    band = image.crop((0, register_start, image.width, register_start + register_lenght))
+    gray_image = band.convert('L')
+    one_line = list(gray_image.resize((gray_image.width, 1)).getdata())
+    one_pixel = list(gray_image.resize((1, 1)).getdata())
+    average = one_pixel[0]
+    threshold = average - (256 - average) * threshold_offset
+    above_threshold = []
+    for i, value in enumerate(one_line):
+        if value < threshold and (len(above_threshold) == 0 or i - above_threshold[-1] > ignore_distance):
+            above_threshold.append(i)
+    
+    if len(above_threshold) == 0:
+        return None
+    
+    distances = []
+    for i, value in enumerate(above_threshold):
+        if i == 0:
+            continue
+
+        distances.append(value - above_threshold[i - 1])
+    
+    distance = mean(distances)
+    beat_count = int(len(above_threshold) / rythm) * rythm
+    if beat_count == 0:
+        return None
+
+    cutoff = int(beat_count * distance)
+    return cutoff
 
 def on_ui_tabs():
     with gr.Blocks() as riffusion_ui:
@@ -393,23 +445,60 @@ def on_ui_tabs():
                         value="*.jpg, *.png",
                         interactive=True,
                     )
-                with gr.Blocks():
-                    crop_method = gr.Dropdown(
-                        label="Crop method",
-                        choices=["None", "Fixed"],
-                        value="None",
-                        interactive=True,
-                        allow_custom_value=False
-                    )
+
+                crop_method = gr.Dropdown(
+                    label="Crop method",
+                    choices=["None", "Fixed", "Beat Finder (Once)", "Beat Finder (Every)"],
+                    value="None",
+                    interactive=True,
+                    allow_custom_value=False
+                )
+                with gr.Column(visible=False) as fixed_block:
                     crop_width = gr.Number(
                         label="Fixed width",
                         value=512,
                         precision=0,
                         interactive=True,
-                        visible=False
                     )
+
+                with gr.Column(visible=False) as beat_finder_block:
+                    with gr.Row():
+                        rythm = gr.Number(
+                            label="Rythm",
+                            value=4,
+                            precision=0,
+                            interactive=True,
+                        )
+
+                        band_start = gr.Number(
+                            label="Band start",
+                            value=0.25,
+                            precision=2,
+                            interactive=True,
+                        )
+
+                        band_end = gr.Number(
+                            label="Band end",
+                            value=0.75,
+                            precision=2,
+                            interactive=True,
+                        )
+                    with gr.Row():
+                        threshold_offset = gr.Number(
+                            label="Threshold offset",
+                            value=0.75,
+                            precision=2,
+                            interactive=True,
+                        )
+
+                        ignore_range = gr.Number(
+                            label="Ignore range",
+                            value=0.05,
+                            precision=23,
+                            interactive=True,
+                        )
                 
-                crop_method.change(on_crop_method_change, crop_method, crop_width)
+                crop_method.change(on_crop_method_change, crop_method, [fixed_block,beat_finder_block])
             with gr.Column(variant="panel"):
                 with gr.Row():
                     convert_folder_btn = gr.Button(
@@ -422,7 +511,12 @@ def on_ui_tabs():
                             file_regex,
                             join_images,
                             crop_method,
-                            crop_width
+                            crop_width,
+                            rythm,
+                            band_start,
+                            band_end,
+                            threshold_offset,
+                            ignore_range
                         ],
                         outputs=[],
                     )
@@ -430,7 +524,8 @@ def on_ui_tabs():
     return ((riffusion_ui, "Riffusion", "riffusion_ui"),)
 
 def on_crop_method_change(crop_method):
-    visible = True if crop_method == "Fixed" else False
-    return gr.update(visible=visible)
+    fixed_visible = True if crop_method == "Fixed" else False
+    beat_finder_visible = True if crop_method.startswith("Beat Finder") else False
+    return gr.update(visible=fixed_visible), gr.update(visible=beat_finder_visible)
 
 script_callbacks.on_ui_tabs(on_ui_tabs)
