@@ -342,7 +342,7 @@ def convert_audio(
     join_images: bool,
     crop_method: str,
     crop_width: int,
-    rythm:int,
+    rhythm:int,
     band_start: float,
     band_end: float,
     threshold_offset: float,
@@ -363,7 +363,7 @@ def convert_audio(
         if crop_method == "Fixed":
             width = crop_width
         elif crop_method.startswith("Beat Finder") and (not crop_method.endswith("(Once)") or i == 0):
-            width = find_cutoff(image_file, rythm, band_start, band_end, threshold_offset, ignore_range)
+            width = find_cutoff(image_file, rhythm, band_start, band_end, threshold_offset, ignore_range)
             print("Cutoff found at:", width)
         
         output_files.append(convert_audio_image(image, image_file, image_dir, width))
@@ -387,7 +387,7 @@ def convert_audio(
 
     print(f"Converted {len(images)} images to audio")
 
-def find_cutoff(image, rythm = 4, band_start = 0.25, band_end = 0.75, threshold_offset = 0.75, ignore_range = 0.05):
+def find_cutoff(image, rhythm = 4, band_start = 0.25, band_end = 0.75, threshold_offset = 0.75, ignore_range = 0.05):
     
     ignore_distance = image.width * ignore_range
     register_start = image.height * band_start
@@ -405,8 +405,11 @@ def find_cutoff(image, rythm = 4, band_start = 0.25, band_end = 0.75, threshold_
             above_threshold.append(i)
     
     if len(above_threshold) == 0:
+        print("Failed to find beats")
         return None
-    
+
+    print("Beats found:", above_threshold)
+
     distances = []
     for i, value in enumerate(above_threshold):
         if i == 0:
@@ -415,8 +418,11 @@ def find_cutoff(image, rythm = 4, band_start = 0.25, band_end = 0.75, threshold_
         distances.append(value - above_threshold[i - 1])
     
     distance = mean(distances)
-    beat_count = int(len(above_threshold) / rythm) * rythm
+    print("Interval:", distance)
+
+    beat_count = int(len(above_threshold) / rhythm) * rhythm
     if beat_count == 0:
+        print("Missmatching rhythm")
         return None
 
     cutoff = int(beat_count * distance)
@@ -463,8 +469,8 @@ def on_ui_tabs():
 
                 with gr.Column(visible=False) as beat_finder_block:
                     with gr.Row():
-                        rythm = gr.Number(
-                            label="Rythm",
+                        rhythm = gr.Number(
+                            label="Rhythm",
                             value=4,
                             precision=0,
                             interactive=True,
@@ -479,21 +485,21 @@ def on_ui_tabs():
 
                         band_end = gr.Number(
                             label="Band end",
-                            value=0.75,
+                            value=0.5,
                             precision=2,
                             interactive=True,
                         )
                     with gr.Row():
                         threshold_offset = gr.Number(
                             label="Threshold offset",
-                            value=0.75,
+                            value=0.35,
                             precision=2,
                             interactive=True,
                         )
 
                         ignore_range = gr.Number(
                             label="Ignore range",
-                            value=0.05,
+                            value=0.1,
                             precision=23,
                             interactive=True,
                         )
@@ -512,7 +518,7 @@ def on_ui_tabs():
                             join_images,
                             crop_method,
                             crop_width,
-                            rythm,
+                            rhythm,
                             band_start,
                             band_end,
                             threshold_offset,
