@@ -20,7 +20,7 @@ import glob
 from datetime import datetime
 import wave
 import platform
-from statistics import mean
+from statistics import mean, median
 
 base_dir = scripts.basedir()
 
@@ -321,7 +321,7 @@ class RiffusionScript(scripts.Script):
 
 def convert_audio_file(image, output_dir, crop_width = None):
     image_file = Image.open(image)
-    return convert_audio_image(image, image_file_, output_dir_, crop_width)
+    return convert_audio_image(image, image_file, output_dir, crop_width)
 
 def convert_audio_image(image, image_file, output_dir, crop_width = None):
     if crop_width is not None and crop_width < image_file.width:
@@ -398,7 +398,7 @@ def find_cutoff(image, rhythm = 4, band_start = 0.25, band_end = 0.75, threshold
     one_line = list(gray_image.resize((gray_image.width, 1)).getdata())
     one_pixel = list(gray_image.resize((1, 1)).getdata())
     average = one_pixel[0]
-    threshold = average - (256 - average) * threshold_offset
+    threshold = min(one_line) + (max(one_line) - min(one_line)) * threshold_offset
     above_threshold = []
     for i, value in enumerate(one_line):
         if value < threshold and (len(above_threshold) == 0 or i - above_threshold[-1] > ignore_distance):
@@ -417,7 +417,7 @@ def find_cutoff(image, rhythm = 4, band_start = 0.25, band_end = 0.75, threshold
 
         distances.append(value - above_threshold[i - 1])
     
-    distance = mean(distances)
+    distance = median(distances)
     print("Interval:", distance)
 
     beat_count = int(len(above_threshold) / rhythm) * rhythm
@@ -492,7 +492,7 @@ def on_ui_tabs():
                     with gr.Row():
                         threshold_offset = gr.Number(
                             label="Threshold offset",
-                            value=0.35,
+                            value=0.1,
                             precision=2,
                             interactive=True,
                         )
