@@ -12,8 +12,8 @@ riffusion_skip_install = os.environ.get("RIFFUSION_SKIP_INSTALL", False)
 if not riffusion_skip_install:
     name = "Riffusion"
     if not launch.is_installed("torchaudio"):
-        if platform.system() == "Darwin":
-            # MacOS
+        if platform.system() == "Darwin" or launch.is_installed("torch-directml"):
+            # MacOS and DirectML
             launch.run(
                 f'"{sys.executable}" -m pip install torchaudio==0.13.1',
                 f"[{name}] Installing torchaudio...",
