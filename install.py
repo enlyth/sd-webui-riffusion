@@ -3,6 +3,7 @@ import sys
 import platform
 import torch
 import launch
+import pkg_resources
 
 req_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), "requirements.txt")
 
@@ -11,27 +12,20 @@ riffusion_skip_install = os.environ.get("RIFFUSION_SKIP_INSTALL", False)
 
 if not riffusion_skip_install:
     name = "Riffusion"
-    if not launch.is_installed("torchaudio"):
-        if platform.system() == "Darwin" or launch.is_installed("torch_directml"):
-            # MacOS and DirectML
-            launch.run(
-                f'"{sys.executable}" -m pip install torchaudio==0.13.1',
-                f"[{name}] Installing torchaudio...",
-                f"[{name}] Couldn't install torchaudio.",
-            )
-        elif torch.version.hip:
-            launch.run(
-                f'"{sys.executable}" -m pip install torchaudio==0.13.1+rocm5.2 --extra-index-url https://download.pytorch.org/whl/rocm5.2',
-                f"[{name}] Installing torchaudio...",
-                f"[{name}] Couldn't install torchaudio.",
-            )
-        else:
-            launch.run(
-                f'"{sys.executable}" -m pip install torchaudio==0.13.1+cu117 --extra-index-url https://download.pytorch.org/whl/cu117',
-                f"[{name}] Installing torchaudio...",
-                f"[{name}] Couldn't install torchaudio.",
-            )
+    
+    # Check if torchaudio is already installed
+    try:
+        dist = pkg_resources.get_distribution('torchaudio')
+        print(f"{name} torchaudio version: {dist.version} is already installed.")
+    except pkg_resources.DistributionNotFound:
+        print(f"{name} torchaudio is not installed, installing...")
+        launch.run(
+            f'"{sys.executable}" -m pip install torchaudio',
+            f"[{name}] Installing torchaudio...",
+            f"[{name}] Couldn't install torchaudio.",
+        )
 
+    # Install other requirements
     launch.run(
         f'"{sys.executable}" -m pip install -r "{req_file}"',
         f"[{name}] Installing requirements...",
